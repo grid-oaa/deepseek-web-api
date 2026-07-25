@@ -23,6 +23,21 @@ pnpm build
 
 Unit tests must not require a real DeepSeek account. Keep browser/login smoke tests manual or explicitly opt-in.
 
+## Branches
+
+- `main` — stable release branch, protected. Only accepts merges from `dev` via pull request.
+- `dev` — active development branch. All feature/fix commits go here first.
+
+Daily workflow:
+```bash
+git checkout dev
+git add -A && git commit -m "..."
+git push origin dev
+# open PR: dev → main when ready to release
+```
+
+Never commit directly to `main`. Always work on `dev` and merge to `main` via PR.
+
 ## Pull requests
 
 - Keep changes focused; do not refactor unrelated modules.
