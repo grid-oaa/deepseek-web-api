@@ -1,4 +1,5 @@
 /** Serves glm-* requests through the chatglm.cn upstream in OpenAI-compatible shapes. */
+import { envTokenWriter } from "../config/dotenvWriter.js";
 import type { AppConfig } from "../config/env.js";
 import type { ChatStreamChunk } from "../deepseek/chatStream.js";
 import type { OpenAIResponse } from "../deepseek/mapResponses.js";
@@ -25,12 +26,19 @@ export class GlmService {
   private readonly client: GlmClient;
 
   constructor(config: AppConfig) {
+    // Only an account token rotates, so persistence is wired in only for that mode.
+    const persist = config.glmRefreshToken
+      ? envTokenWriter("GLM_REFRESH_TOKEN", config.dotEnvFile, (error: unknown) => {
+          console.warn(`[GLM] 无法写回 GLM_REFRESH_TOKEN：${String(error)}`);
+        })
+      : undefined;
     this.client = new GlmClient({
       baseUrl: config.glmBaseUrl,
       assistantId: config.glmAssistantId,
       userAgent: config.glmUserAgent,
       ...(config.glmAccessToken ? { accessToken: config.glmAccessToken } : {}),
       ...(config.glmRefreshToken ? { refreshToken: config.glmRefreshToken } : {}),
+      ...(persist ? { onRefreshToken: persist } : {}),
     });
   }
 

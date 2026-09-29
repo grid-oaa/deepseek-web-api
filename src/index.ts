@@ -41,7 +41,11 @@ async function buildRuntime() {
 async function start(): Promise<void> {
   const { config, logger, client, glm } = await buildRuntime();
   const apiKey = loadApiKey(config.apiKeyFile);
-  await client.initialize();
+  // DeepSeek login can block on an interactive browser, so it runs in the background and
+  // never delays the listener. glm-* requests use a separate upstream and do not need it.
+  void client.initialize().catch((error: unknown) => {
+    logger.warn(`DeepSeek 登录未完成，glm-* 模型仍可用：${errorMessage(error)}`);
+  });
   const server = createServer({ client, glm, apiKeys: apiKey.keys, debug: config.debug });
   await listen(server, config.port, config.host);
   logger.info(`deepseek-web-api 已启动：http://${config.host}:${config.port}`);

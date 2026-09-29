@@ -33,6 +33,8 @@ export interface AppConfig {
   glmBaseUrl: string;
   glmAssistantId: string;
   glmUserAgent: string;
+  /** .env file the rotated GLM refresh token is written back to. */
+  dotEnvFile: string;
   glmAccessToken?: string;
   glmRefreshToken?: string;
 }
@@ -101,6 +103,7 @@ export function loadConfig(cwd = process.cwd()): AppConfig {
     debug: /^(1|true|yes|on)$/i.test(process.env.DS_DEBUG || ""),
     toolReasoning: parseToolReasoning(process.env.DS_TOOL_REASONING),
     showBrowser: /^(1|true|yes|on)$/i.test(process.env.DS_SHOW_BROWSER || ""),
+    dotEnvFile: envPath("DS_DOT_ENV", path.join(cwd, ".env")),
     glmBaseUrl: process.env.GLM_BASE_URL?.trim() || GLM_BASE_URL,
     glmAssistantId: process.env.GLM_ASSISTANT_ID?.trim() || GLM_ASSISTANT_ID,
     glmUserAgent: process.env.GLM_USER_AGENT?.trim() || GLM_USER_AGENT,

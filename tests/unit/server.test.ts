@@ -38,6 +38,7 @@ function testDependencies(): { client: DeepSeekClient; glm: GlmService } {
     glmBaseUrl: "https://glm.test/chatglm",
     glmAssistantId: "assistant",
     glmUserAgent: "ua",
+    dotEnvFile: path.join(dataDir, ".env"),
   };
   const logger = createLogger(false);
   const chrome = new ChromeManager(config, logger);

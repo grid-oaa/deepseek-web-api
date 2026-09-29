@@ -14,6 +14,8 @@ export interface GlmClientOptions {
   refreshToken?: string;
   deviceId?: string;
   userAgent?: string;
+  /** Called with each rotated refresh token so it can be persisted by the owner. */
+  onRefreshToken?: (token: string) => void;
   fetchImpl?: typeof fetch;
 }
 
@@ -47,6 +49,7 @@ export class GlmClient {
   private readonly userAgent: string;
   private readonly deviceId: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly onRefreshToken: ((token: string) => void) | undefined;
   private accessToken: string | null;
   private refreshToken: string | null;
 
@@ -56,6 +59,7 @@ export class GlmClient {
     this.userAgent = options.userAgent ?? GLM_USER_AGENT;
     this.deviceId = options.deviceId ?? randomHex();
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.onRefreshToken = options.onRefreshToken;
     this.accessToken = options.accessToken?.trim() || null;
     this.refreshToken = options.refreshToken?.trim() || null;
   }
@@ -122,7 +126,12 @@ export class GlmClient {
     }
     this.accessToken = accessToken;
     const next = asString(result.refresh_token);
-    if (next) this.refreshToken = next;
+    // Upstream rotates the refresh token on every exchange, so a changed value must be
+    // persisted or the next process start would authenticate with a spent token.
+    if (next && next !== this.refreshToken) {
+      this.refreshToken = next;
+      this.onRefreshToken?.(next);
+    }
     return { accessToken, refreshToken: this.refreshToken };
   }
 
