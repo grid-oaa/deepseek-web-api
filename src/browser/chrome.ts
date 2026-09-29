@@ -113,9 +113,7 @@ export class ChromeManager {
     const host = new URL(url).hostname;
     let page = context.pages().find((candidate) => candidate.url().includes(host));
     if (!page) page = context.pages()[0] ?? (await context.newPage());
-    if (!page.url().startsWith(url)) {
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
-    }
+    await this.navigate(page, url);
     return page;
   }
 
@@ -124,10 +122,24 @@ export class ChromeManager {
     const context = await this.context(options);
     let page = context.pages().find((candidate) => candidate.url().includes("chat.deepseek.com"));
     if (!page) page = context.pages()[0] ?? (await context.newPage());
-    if (openDeepSeek && !page.url().startsWith(this.config.baseUrl)) {
-      await page.goto(this.config.baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
-    }
+    if (openDeepSeek) await this.navigate(page, this.config.baseUrl);
     return page;
+  }
+
+  /**
+   * Bring a page to the target URL without racing the launch navigation. A visible managed
+   * Chrome is started with the URL as a command-line argument, so a concurrent goto() would
+   * abort with "Navigation ... interrupted by another navigation".
+   */
+  private async navigate(page: Page, url: string): Promise<void> {
+    if (page.url().startsWith(url)) return;
+    const pending = page
+      .waitForURL((target) => target.href.startsWith(url), { timeout: 5_000 })
+      .catch(() => undefined);
+    if (!page.url().startsWith("about:")) await pending;
+    if (!page.url().startsWith(url)) {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    }
   }
 
   isConnected(): boolean {
