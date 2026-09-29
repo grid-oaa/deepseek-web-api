@@ -84,14 +84,14 @@ export class GlmClient {
    * Open one chat stream and return the raw SSE response for iterGlmUpdates.
    * An expired access_token surfaces as 401; drop the cache and retry exactly once.
    */
-  async streamChat(prompt: string, signal?: AbortSignal): Promise<Response> {
+  async streamChat(prompt: string, conversationId = "", signal?: AbortSignal): Promise<Response> {
     const first = await this.ensureToken();
-    const response = await this.postChat(first.accessToken, prompt, signal);
+    const response = await this.postChat(first.accessToken, prompt, conversationId, signal);
     if (response.status !== 401) return response;
     console.log("[GLM] access_token expired, dropping cache and retrying once");
     this.accessToken = null;
     const retry = await this.ensureToken();
-    return this.postChat(retry.accessToken, prompt, signal);
+    return this.postChat(retry.accessToken, prompt, conversationId, signal);
   }
 
   /** Account mode: exchange refresh_token and keep the rotated refresh_token. */
@@ -134,10 +134,10 @@ export class GlmClient {
   }
 
   /** Build the chatglm.cn chat payload and POST it to the stream endpoint. */
-  private postChat(accessToken: string, prompt: string, signal?: AbortSignal): Promise<Response> {
+  postChat(accessToken: string, prompt: string, conversationId = "", signal?: AbortSignal): Promise<Response> {
     const body = {
       assistant_id: this.assistantId,
-      conversation_id: "",
+      conversation_id: conversationId,
       project_id: "",
       chat_type: "user_chat",
       messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
