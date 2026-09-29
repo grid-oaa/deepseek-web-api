@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - chatglm.cn upstream served through the `glm-5.3-flash` and `glm-5.3` model ids, dispatched by the `glm` model prefix.
 - Optional `GLM_*` settings for the chatglm.cn endpoint, assistant id, user agent, and access/refresh tokens.
+- `glm-*` text-protocol tool calling, so agent clients receive standard `tool_calls` and `function_call` items.
+- Live streaming for tool-free `glm-*` turns; tool turns stay buffered because the protocol can only be parsed once the full turn is known.
+- chatglm.cn conversation reuse: a follow-up carries the upstream conversation id and sends only the new turn, so the prompt no longer grows with the conversation.
 
 ### Fixed
 
