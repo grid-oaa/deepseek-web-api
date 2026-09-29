@@ -90,7 +90,7 @@ describe("SessionStore", () => {
       sessionId: "same-session",
       modelType: "default",
       responseMessageId: 1,
-      convKey: "fp:user:hello\n---\nassistant:world",
+      convKey: `fp:ca694c04fd9d5394ae8a8f8290598e60a3625632dc84389af4ae2685bbb17ff3`,
       prompt: "hello",
       responseText: "world",
     });

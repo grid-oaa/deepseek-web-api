@@ -102,22 +102,97 @@ function processCommand(pid: number): string | null {
   }
 }
 
-/** Recover CDP URL from a live Chrome that already owns chromeProfileDir. */
-export function existingManagedEndpoint(profileDir: string): string | null {
+/** A headless browser can never show a window, so it cannot satisfy a visible request. */
+export async function cdpIsHeadless(endpoint: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${endpoint.replace(/\/$/, "")}/json/version`);
+    if (!response.ok) return false;
+    const data: unknown = await response.json();
+    if (typeof data !== "object" || data === null) return false;
+    const agent = "User-Agent" in data ? String(data["User-Agent"]) : "";
+    return /headless/i.test(agent);
+  } catch {
+    return false;
+  }
+}
+
+/** PID of the live Chrome owning chromeProfileDir, or null when the profile is free. */
+export function profileOwnerPid(profileDir: string): number | null {
   try {
     const lock = fs.readlinkSync(path.join(profileDir, "SingletonLock"));
     const pid = Number(lock.split("-").pop());
-    if (!Number.isInteger(pid) || pid <= 0 || !processAlive(pid)) return null;
-    const command = processCommand(pid);
-    if (!command) return null;
-    const match = command.match(/--remote-debugging-port=(\d+)/);
-    if (!match) return null;
-    return `http://127.0.0.1:${match[1]}`;
+    return Number.isInteger(pid) && pid > 0 && processAlive(pid) ? pid : null;
   } catch {
     return null;
   }
 }
 
+/** Stop the managed Chrome so a visible instance can take over the same profile. */
+export function killManagedChrome(profileDir: string): boolean {
+  const pid = profileOwnerPid(profileDir);
+  if (pid === null) return false;
+  try {
+    process.kill(pid);
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Stop any Chrome still bound to a CDP port, ignoring profile locks.
+ * Windows keeps a lockfile rather than a SingletonLock symlink, so a leftover headless
+ * instance stays invisible to profileOwnerPid and would block a visible replacement.
+ */
+export async function killChromeOnPort(endpoint: string, timeoutMs = 20_000): Promise<boolean> {
+  const port = localDebugPort(endpoint);
+  if (port === null) return false;
+  try {
+    const { execFileSync } = await import("node:child_process");
+    const output = execFileSync("netstat", ["-ano", "-p", "tcp"], { encoding: "utf8" });
+    const pattern = new RegExp(`^\\s*TCP\\s+\\S+:${port}\\s+\\S+\\s+LISTENING\\s+(\\d+)\\s*$`, "im");
+    const match = output.match(pattern);
+    const pid = match ? Number(match[1]) : NaN;
+    if (!Number.isInteger(pid) || pid <= 0) return false;
+    process.kill(pid);
+  } catch {
+    return false;
+  }
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!(await cdpVersionOk(endpoint))) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
+/**
+ * Wait until the previous owner has fully exited. Chrome drops SingletonLock before the
+ * process ends, so checking the lock alone would race and let the replacement fail to start.
+ */
+export async function waitForProfileRelease(
+  profileDir: string,
+  timeoutMs = 20_000,
+): Promise<boolean> {
+  const pid = profileOwnerPid(profileDir);
+  if (pid === null) return true;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!processAlive(pid)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
+/** Recover CDP URL from a live Chrome that already owns chromeProfileDir. */
+export function existingManagedEndpoint(profileDir: string): string | null {
+  const pid = profileOwnerPid(profileDir);
+  if (pid === null) return null;
+  const command = processCommand(pid);
+  if (!command) return null;
+  const match = command.match(/--remote-debugging-port=(\d+)/);
+  return match ? `http://127.0.0.1:${match[1]}` : null;
+}
 /** Drop Singleton* files only when the owning PID is dead. */
 export function clearStaleProfileLocks(profileDir: string): void {
   const lockPath = path.join(profileDir, "SingletonLock");

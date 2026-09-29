@@ -10,13 +10,17 @@ import type { Logger } from "../utils/logger.js";
 import { errorMessage } from "../utils/errors.js";
 import {
   cdpIsExtensionFree,
+  cdpIsHeadless,
   cdpVersionOk,
   clearStaleProfileLocks,
   existingManagedEndpoint,
   freePort,
+  killChromeOnPort,
+  killManagedChrome,
   localDebugPort,
   readSavedCdp,
   waitForCdp,
+  waitForProfileRelease,
   writeSavedCdp,
 } from "./chromeCdp.js";
 import { findChromeExecutable } from "./chromePaths.js";
@@ -68,10 +72,15 @@ export class ChromeManager {
         }
         continue;
       }
+      // A headless browser can never show a window, so it cannot serve a visible request.
+      if (wantVisible && (await cdpIsHeadless(endpoint))) {
+        this.logger.debug("跳过无头 CDP（当前需要可见窗口）", { endpoint });
+        continue;
+      }
       try {
         this.browser = await chromium.connectOverCDP(endpoint, { timeout: 5_000 });
         this.cdpEndpoint = endpoint;
-        this.launchedVisible = null;
+        this.launchedVisible = wantVisible;
         writeSavedCdp(this.cdpFile, endpoint);
         this.logger.info("已连接 Chrome CDP", { endpoint });
         return this.browser;
@@ -139,20 +148,36 @@ export class ChromeManager {
     // Live owner of the profile -> must reconnect, never double-launch.
     const live = existingManagedEndpoint(this.config.chromeProfileDir);
     if (live) {
-      if (await cdpVersionOk(live)) {
+      if (!(await cdpVersionOk(live))) {
+        throw new Error(
+          `Managed Chrome profile is locked but CDP is unavailable (${live}). Kill the process and retry.`,
+        );
+      }
+      if (!(visible && (await cdpIsHeadless(live)))) {
         this.cdpEndpoint = live;
         return live;
       }
-      throw new Error(
-        `Managed Chrome profile is locked but CDP is unavailable (${live}). Kill the process and retry.`,
-      );
+      // Interactive login needs a window; replace the leftover headless instance.
+      this.logger.info("检测到无头 Chrome，正在重启为可见窗口", { endpoint: live });
+      if (!killManagedChrome(this.config.chromeProfileDir)) {
+        throw new Error(`无法关闭无头 Chrome (${live})，请手动结束该进程后重试。`);
+      }
+      if (!(await waitForProfileRelease(this.config.chromeProfileDir))) {
+        throw new Error(`无头 Chrome 未及时退出 (${live})，请手动结束该进程后重试。`);
+      }
     }
-
     clearStaleProfileLocks(this.config.chromeProfileDir);
 
     let port = localDebugPort(this.config.cdpEndpoint) ?? 9333;
-    if (await cdpVersionOk(`http://127.0.0.1:${port}`)) {
-      port = await freePort();
+    const configured = `http://127.0.0.1:${port}`;
+    if (await cdpVersionOk(configured)) {
+      // A leftover instance on the configured port keeps the profile busy, so a visible
+      // replacement cannot start there. Headless is the case interactive login must fix.
+      if (visible && (await cdpIsHeadless(configured))) {
+        this.logger.info("关闭占用端口的无头 Chrome", { endpoint: configured });
+        await killChromeOnPort(configured);
+      }
+      if (await cdpVersionOk(configured)) port = await freePort();
     }
     this.cdpEndpoint = `http://127.0.0.1:${port}`;
     this.launchManagedChrome(port, visible);
