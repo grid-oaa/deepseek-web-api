@@ -37,6 +37,7 @@ function baseConfig(dir: string): AppConfig {
     debug: false,
     toolReasoning: "hidden",
     showBrowser: false,
+    startupLogin: "glm" as const,
     dotEnvFile: path.join(dir, ".env"),
     glmBaseUrl: "https://chatglm.cn/chatglm",
     glmAssistantId: "assistant",

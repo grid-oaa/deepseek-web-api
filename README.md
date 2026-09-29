@@ -133,6 +133,10 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 
 `model` 以 `glm` 开头的请求会转发到 chatglm.cn，其余走 DeepSeek Web。`glm-*` 复用相同的请求与响应结构，但不支持 tool calling、Web 搜索，也不复用 DeepSeek 的 session 续接。
 
+### 启动登录目标
+
+`DS_STARTUP_LOGIN` 决定 `pnpm start` 时检查并在缺失时弹窗登录的上游：`glm`（本分支默认）或 `deepseek`。两者都在后台进行，不阻塞端口监听；未被选中的上游会在收到对应请求时再登录。
+
 ### chatglm.cn 登录
 
 `glm-*` 模型与 DeepSeek 使用同一套三级登录流程，且不阻塞服务启动：

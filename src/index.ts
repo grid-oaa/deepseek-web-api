@@ -41,12 +41,16 @@ async function buildRuntime() {
 
 /** Validate login before listening so the first API request is immediately usable. */
 async function start(): Promise<void> {
-  const { config, logger, client, glm } = await buildRuntime();
+  const { config, logger, client, glm, glmLogin } = await buildRuntime();
   const apiKey = loadApiKey(config.apiKeyFile);
-  // DeepSeek login can block on an interactive browser, so it runs in the background and
-  // never delays the listener. glm-* requests use a separate upstream and do not need it.
-  void client.initialize().catch((error: unknown) => {
-    logger.warn(`DeepSeek 登录未完成，glm-* 模型仍可用：${errorMessage(error)}`);
+  // Only the startup target prompts for a login, and it runs in the background so the
+  // listener is never blocked. The other upstream resolves its login on first use.
+  const target = config.startupLogin === "glm" ? "chatglm.cn" : "DeepSeek";
+  const startupLogin = config.startupLogin === "glm"
+    ? glmLogin.ensureLoggedIn()
+    : client.initialize();
+  void startupLogin.catch((error: unknown) => {
+    logger.warn(`${target} 登录未完成：${errorMessage(error)}`);
   });
   const server = createServer({ client, glm, apiKeys: apiKey.keys, debug: config.debug });
   await listen(server, config.port, config.host);

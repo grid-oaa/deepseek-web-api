@@ -25,6 +25,7 @@ function config(): AppConfig {
     glmBaseUrl: "https://glm.test/chatglm",
     glmAssistantId: "assistant",
     glmUserAgent: "ua",
+    startupLogin: "glm" as const,
     dotEnvFile: ".env",
   };
 }

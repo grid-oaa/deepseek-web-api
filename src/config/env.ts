@@ -13,6 +13,9 @@ import {
 
 export type ToolReasoningMode = "hidden" | "clean";
 
+/** Which upstream gets the startup login prompt. */
+export type StartupLogin = "deepseek" | "glm";
+
 export interface AppConfig {
   port: number;
   host: string;
@@ -33,6 +36,8 @@ export interface AppConfig {
   glmBaseUrl: string;
   glmAssistantId: string;
   glmUserAgent: string;
+  /** Upstream that is checked, and prompted for when missing, during start. */
+  startupLogin: StartupLogin;
   /** .env file the rotated GLM refresh token is written back to. */
   dotEnvFile: string;
   glmAccessToken?: string;
@@ -73,6 +78,12 @@ function parseToolReasoning(raw: string | undefined): ToolReasoningMode {
   return value;
 }
 
+function parseStartupLogin(raw: string | undefined): StartupLogin {
+  const value = raw?.trim().toLowerCase();
+  if (value === "deepseek" || value === "glm") return value;
+  return "glm";
+}
+
 function parsePort(raw: string | undefined): number {
   const port = Number(raw || 8787);
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
@@ -103,6 +114,7 @@ export function loadConfig(cwd = process.cwd()): AppConfig {
     debug: /^(1|true|yes|on)$/i.test(process.env.DS_DEBUG || ""),
     toolReasoning: parseToolReasoning(process.env.DS_TOOL_REASONING),
     showBrowser: /^(1|true|yes|on)$/i.test(process.env.DS_SHOW_BROWSER || ""),
+    startupLogin: parseStartupLogin(process.env.DS_STARTUP_LOGIN),
     dotEnvFile: envPath("DS_DOT_ENV", path.join(cwd, ".env")),
     glmBaseUrl: process.env.GLM_BASE_URL?.trim() || GLM_BASE_URL,
     glmAssistantId: process.env.GLM_ASSISTANT_ID?.trim() || GLM_ASSISTANT_ID,
