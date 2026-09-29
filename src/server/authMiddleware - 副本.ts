@@ -37,27 +37,11 @@ export function loadApiKey(file: string, envKey = process.env.DS_API_KEY): ApiKe
 export function extractApiKey(headers: IncomingHttpHeaders): string {
   const headerKey = headers["x-api-key"];
   const first = Array.isArray(headerKey) ? headerKey[0] : headerKey;
-
+  if (first) return first.trim();
   const authorization = headers.authorization;
-
-  console.log("[AUTH DEBUG]", {
-    hasAuthorization: !!authorization,
-    authorizationPrefix: authorization
-      ? authorization.substring(0, 12)
-      : null,
-    hasXApiKey: !!first,
-    xApiKeyPrefix: first
-      ? first.substring(0, 5)
-      : null,
-    xApiKeyLength: first?.length ?? 0,
-  });
-
-  if (first) return first;
-
   if (!authorization) return "";
-
   const match = authorization.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ?? "";
+  return (match?.[1] ?? authorization).trim();
 }
 
 /** Use constant-time comparison after checking length to reduce timing leakage. */
