@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import type { Browser, BrowserContext, Page } from "playwright-core";
 import { chromium } from "playwright-core";
 
+import { GLM_WEB_URL } from "../config/constants.js";
 import type { AppConfig } from "../config/env.js";
 import type { Logger } from "../utils/logger.js";
 import { errorMessage } from "../utils/errors.js";
@@ -209,6 +210,12 @@ export class ChromeManager {
     return this.cdpEndpoint;
   }
 
+  /** The site a visible browser should open: the branch's primary upstream, not the API base. */
+  private startupUrl(): string {
+    if (this.config.startupLogin !== "glm") return this.config.baseUrl;
+    return GLM_WEB_URL;
+  }
+
   private launchManagedChrome(port: number, visible: boolean): void {
     fs.mkdirSync(this.config.chromeProfileDir, { recursive: true, mode: 0o700 });
     const executable = findChromeExecutable(this.config.chromePath);
@@ -224,7 +231,7 @@ export class ChromeManager {
       "--disable-background-networking",
     ];
     if (!visible) args.push("--headless=new", "--disable-gpu");
-    if (visible) args.push(this.config.baseUrl);
+    if (visible) args.push(this.startupUrl());
     const child = spawn(executable, args, {
       detached: true,
       stdio: ["ignore", "ignore", "pipe"],
