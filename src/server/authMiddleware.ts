@@ -40,17 +40,6 @@ export function extractApiKey(headers: IncomingHttpHeaders): string {
 
   const authorization = headers.authorization;
 
-  console.log("[AUTH DEBUG]", {
-    hasAuthorization: !!authorization,
-    authorizationPrefix: authorization
-      ? authorization.substring(0, 12)
-      : null,
-    hasXApiKey: !!first,
-    xApiKeyPrefix: first
-      ? first.substring(0, 5)
-      : null,
-    xApiKeyLength: first?.length ?? 0,
-  });
 
   if (first) return first;
 
