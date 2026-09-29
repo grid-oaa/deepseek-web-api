@@ -131,7 +131,7 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 | `glm-5.3-flash` | chatglm.cn | 不支持 |
 | `glm-5.3` | chatglm.cn | 不支持 |
 
-`model` 以 `glm` 开头的请求会转发到 chatglm.cn，其余走 DeepSeek Web。`glm-*` 复用相同的请求与响应结构，但不支持 tool calling、Web 搜索，也不复用 DeepSeek 的 session 续接。
+`model` 以 `glm` 开头的请求会转发到 chatglm.cn，其余走 DeepSeek Web。`glm-*` 复用相同的请求与响应结构（含文本协议的 tool calling），但不支持 Web 搜索，也不复用 DeepSeek 的 session 续接。
 
 ### 启动登录目标
 

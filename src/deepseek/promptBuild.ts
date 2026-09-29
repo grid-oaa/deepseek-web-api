@@ -107,7 +107,7 @@ export function requestConversationTurns(body: RequestBody): MessageTurn[] {
   return requestItems(body).map(conversationTurn).filter((turn): turn is MessageTurn => turn !== null);
 }
 
-function instructionText(body: RequestBody): string {
+export function instructionText(body: RequestBody): string {
   const entries: string[] = [];
   const topLevel = [
     ["system", body.system],
@@ -125,7 +125,7 @@ function instructionText(body: RequestBody): string {
   return entries.join("\n\n");
 }
 
-function toolState(body: RequestBody): { text: string; fingerprint: string; hasTools: boolean } {
+export function toolState(body: RequestBody): { text: string; fingerprint: string; hasTools: boolean } {
   const tools = Array.isArray(body.tools) ? body.tools : [];
   const functions = Array.isArray(body.functions) ? body.functions : [];
   const hasTools = tools.length > 0 || functions.length > 0;

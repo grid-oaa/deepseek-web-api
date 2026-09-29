@@ -2,6 +2,7 @@
 import type { ServerResponse } from "node:http";
 
 import type { RequestBody } from "../deepseek/types.js";
+import { responseChatChoice } from "./chatCompletions.js";
 import type { GlmService } from "../glm/service.js";
 import { errorMessage, errorStatus } from "../utils/errors.js";
 import { writeJson, writeSse, writeSseHeaders } from "../utils/http.js";
@@ -28,14 +29,14 @@ export async function handleGlmChatCompletions(
   }
 
   try {
+    // Reuse the shared assembler so tool calls survive; output_text alone would drop them.
     const result = await service.completeResponses(body);
-    const text = result.output_text ?? "";
     writeJson(response, 200, {
       id: result.id,
       object: "chat.completion",
       created: result.created_at,
       model: result.model,
-      choices: [{ index: 0, message: { role: "assistant", content: text }, finish_reason: "stop" }],
+      choices: [responseChatChoice(result)],
       usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
     });
   } catch (error) {
