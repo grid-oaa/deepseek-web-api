@@ -133,6 +133,16 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 
 `model` 以 `glm` 开头的请求会转发到 chatglm.cn，其余走 DeepSeek Web。`glm-*` 复用相同的请求与响应结构，但不支持 tool calling、Web 搜索，也不复用 DeepSeek 的 session 续接。
 
+### chatglm.cn 登录
+
+`glm-*` 模型与 DeepSeek 使用同一套三级登录流程，且不阻塞服务启动：
+
+1. `.env` 里的 `GLM_REFRESH_TOKEN` 通过上游校验 → 直接复用，不打开浏览器；
+2. 否则读取托管 Chrome profile 中已登录的 `chatglm_refresh_token` Cookie；
+3. 仍无凭据 → 弹出可见浏览器打开 chatglm.cn，等待你登录，每 1.5 秒轮询 Cookie，成功后写回 `.env`。
+
+游客模式已移除：无凭据时不会再降级为 `/user-api/guest/access`（必然被限流，业务码 10061）。
+
 兼容别名：
 
 - flash：`flash`、`default`、`deepseek-chat`
@@ -217,9 +227,9 @@ DeepSeek Web 没有 OpenAI 原生 function calling。本项目把 tools/function
 | `DS_TOOL_REASONING` | `hidden` | 工具轮 reasoning：`hidden` 或 `clean` |
 | `GLM_BASE_URL` | `https://chatglm.cn/chatglm` | chatglm.cn 上游地址 |
 | `GLM_ASSISTANT_ID` | 内置 | chatglm.cn assistant id |
-| `GLM_USER_AGENT` | 内置 Chrome UA | chatglm.cn 请求 UA |
-| `GLM_ACCESS_TOKEN` | 空 | 可选；留空则每次走游客令牌 |
-| `GLM_REFRESH_TOKEN` | 空 | 可选；游客额度通常返回业务码 10061 |
+| `GLM_ACCESS_TOKEN` | 空 | 可选；一般无需填写，由 refresh token 换取 |
+| `GLM_ACCESS_TOKEN` | 空 | 可选；一般无需填写，由 refresh token 换取 |
+| `GLM_REFRESH_TOKEN` | 空 | 可选；首次请求时若缺失会弹出浏览器登录并自动写回 |
 
 可复制 `.env.example` 为 `.env`。启动时读取该文件，但不会覆盖已存在的进程环境变量。
 

@@ -31,22 +31,24 @@ function headersOf(call: StubCall | undefined): Record<string, string> {
   return (call?.init.headers ?? {}) as Record<string, string>;
 }
 
-describe("GLM client", () => {
-  it("fetches a guest token once and reuses the cache", async () => {
-    const { calls, impl } = stubFetch([jsonResponse({ result: { access_token: "guest-token" } })]);
-    const client = new GlmClient({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl, deviceId: "dev" });
+/** Guest access is no longer supported, so every test starts from an account token. */
+function client(overrides: Partial<ConstructorParameters<typeof GlmClient>[0]> = {}) {
+  return { refreshToken: "r1", ...overrides };
+}
 
-    await expect(client.ensureToken()).resolves.toEqual({ accessToken: "guest-token", refreshToken: null });
-    expect(calls[0]?.url).toBe("https://glm.test/chatglm/user-api/guest/access");
-    await client.ensureToken();
-    expect(calls).toHaveLength(1);
+describe("GLM client", () => {
+  it("rejects a request with no account token instead of falling back to guest mode", async () => {
+    const { impl } = stubFetch([]);
+    const subject = new GlmClient({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl });
+
+    await expect(subject.ensureToken()).rejects.toThrow(/缺少 GLM_REFRESH_TOKEN/);
   });
 
   it("refreshes an account token and keeps the rotated refresh token", async () => {
     const { calls, impl } = stubFetch([jsonResponse({ result: { access_token: "a2", refresh_token: "r2" } })]);
-    const client = new GlmClient({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl, refreshToken: "r1" });
+    const subject = new GlmClient(client({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl }));
 
-    await expect(client.ensureToken()).resolves.toEqual({ accessToken: "a2", refreshToken: "r2" });
+    await expect(subject.ensureToken()).resolves.toEqual({ accessToken: "a2", refreshToken: "r2" });
     expect(calls[0]?.url).toBe("https://glm.test/chatglm/user-api/user/refresh");
     expect(headersOf(calls[0]).Authorization).toBe("Bearer r1");
   });
@@ -56,9 +58,11 @@ describe("GLM client", () => {
       jsonResponse({ result: { access_token: "t1" } }),
       new Response("data: {}\n\n", { status: 200 }),
     ]);
-    const client = new GlmClient({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl, deviceId: "dev" });
+    const subject = new GlmClient(
+      client({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl, deviceId: "dev" }),
+    );
 
-    await client.streamChat("hi");
+    await subject.streamChat("hi");
     expect(calls[1]?.url).toBe("https://glm.test/chatglm/backend-api/assistant/stream");
     const headers = headersOf(calls[1]);
     expect(headers.Authorization).toBe("Bearer t1");
@@ -78,9 +82,11 @@ describe("GLM client", () => {
       jsonResponse({ result: { access_token: "fresh" } }),
       new Response("data: {}\n\n", { status: 200 }),
     ]);
-    const client = new GlmClient({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl, deviceId: "dev" });
+    const subject = new GlmClient(
+      client({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl, deviceId: "dev" }),
+    );
 
-    const response = await client.streamChat("hi");
+    const response = await subject.streamChat("hi");
     expect(response.status).toBe(200);
     expect(calls).toHaveLength(4);
     expect(headersOf(calls[3]).Authorization).toBe("Bearer fresh");
@@ -88,8 +94,10 @@ describe("GLM client", () => {
 
   it("throws an upstream error when the token payload has no access_token", async () => {
     const { impl } = stubFetch([jsonResponse({ code: 10061, result: {} })]);
-    const client = new GlmClient({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl });
+    const subject = new GlmClient(
+      client({ baseUrl: "https://glm.test/chatglm", fetchImpl: impl }),
+    );
 
-    await expect(client.ensureToken()).rejects.toThrow(/missing access_token/);
+    await expect(subject.ensureToken()).rejects.toThrow(/missing access_token/);
   });
 });

@@ -19,7 +19,7 @@ export interface GlmClientOptions {
   fetchImpl?: typeof fetch;
 }
 
-/** Auth pair for one conversation; guest mode has no refresh token. */
+/** Auth pair for one conversation; the refresh token survives for reuse. */
 export interface GlmToken {
   accessToken: string;
   refreshToken: string | null;
@@ -41,7 +41,7 @@ function randomForwardedFor(): string {
 
 /**
  * chatglm.cn client: owns token lifecycle and chat requests; response parsing is left
- * to iterGlmUpdates. Without any token it falls back to guest mode for zero-config runs.
+ * to iterGlmUpdates. An account refresh token is required; there is no guest fallback.
  */
 export class GlmClient {
   private readonly baseUrl: string;
@@ -64,12 +64,20 @@ export class GlmClient {
     this.refreshToken = options.refreshToken?.trim() || null;
   }
 
-  /** Return a usable access_token, reusing the cache or refreshing/guest-fetching once. */
+  /** Adopt a token resolved later by the login flow, dropping any stale cache. */
+  adoptRefreshToken(token: string): void {
+    if (token === this.refreshToken) return;
+    this.refreshToken = token;
+    this.accessToken = null;
+  }
+
+  /** Return a usable access_token, refreshing from the account token when the cache is cold. */
   async ensureToken(): Promise<GlmToken> {
     if (this.accessToken) {
       return { accessToken: this.accessToken, refreshToken: this.refreshToken };
     }
-    return this.refreshToken ? this.fetchByRefreshToken() : this.fetchGuestToken();
+    if (!this.refreshToken) throw new HttpError(401, "GLM 未登录：缺少 GLM_REFRESH_TOKEN");
+    return this.fetchByRefreshToken();
   }
 
   /**
@@ -84,16 +92,6 @@ export class GlmClient {
     this.accessToken = null;
     const retry = await this.ensureToken();
     return this.postChat(retry.accessToken, prompt, signal);
-  }
-
-  /** Guest mode: claim a short-lived access_token without an account. */
-  private async fetchGuestToken(): Promise<GlmToken> {
-    const response = await this.fetchImpl(`${this.baseUrl}/user-api/guest/access`, {
-      method: "POST",
-      headers: { ...this.buildHeaders(null, false, "default"), Referer: "https://chatglm.cn/" },
-      body: "",
-    });
-    return this.readToken(response, "GLM guest token");
   }
 
   /** Account mode: exchange refresh_token and keep the rotated refresh_token. */

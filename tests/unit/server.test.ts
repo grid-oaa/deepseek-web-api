@@ -10,6 +10,7 @@ import { LoginManager } from "../../src/browser/login.js";
 import type { AppConfig } from "../../src/config/env.js";
 import { DeepSeekClient } from "../../src/deepseek/client.js";
 import { SessionStore } from "../../src/deepseek/sessionStore.js";
+import type { GlmLoginManager } from "../../src/glm/login.js";
 import { GlmService } from "../../src/glm/service.js";
 import { createServer } from "../../src/server/createServer.js";
 import { createLogger } from "../../src/utils/logger.js";
@@ -18,6 +19,14 @@ const servers: Server[] = [];
 afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
 });
+
+/** Login stub so the server test never opens a browser. */
+function stubLogin(token = "refresh-token"): GlmLoginManager {
+  return {
+    ensureLoggedIn: async () => token,
+    currentToken: () => token,
+  } as unknown as GlmLoginManager;
+}
 
 function testDependencies(): { client: DeepSeekClient; glm: GlmService } {
   const dataDir = mkdtempSync(path.join(tmpdir(), "deepseek-web-api-test-"));
@@ -45,7 +54,7 @@ function testDependencies(): { client: DeepSeekClient; glm: GlmService } {
   const login = new LoginManager(chrome, config, logger);
   return {
     client: new DeepSeekClient(config, login, new SessionStore(), logger),
-    glm: new GlmService(config),
+    glm: new GlmService(config, stubLogin()),
   };
 }
 

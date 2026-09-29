@@ -42,7 +42,10 @@ x-api-key: <api-key>
 
 Requests whose `model` starts with `glm` are routed to chatglm.cn; everything else goes to
 DeepSeek Web. The `glm-*` models reuse the same request and response shapes but do not
-support tool-call mapping, Web search, or DeepSeek session reuse.
+support tool-call mapping, Web search, or DeepSeek session reuse. They authenticate with the same
+three-step login ladder as DeepSeek, reading `GLM_REFRESH_TOKEN` from `.env`, then the
+`chatglm_refresh_token` cookie in the managed Chrome profile, and finally waiting for an
+interactive login. Guest mode was removed because the guest endpoint is rate limited.
 
 Unknown model strings containing `pro` or `expert` resolve to expert mode; other unknown strings resolve to flash mode. Clients should use the public IDs returned by `/v1/models`.
 

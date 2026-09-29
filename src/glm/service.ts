@@ -1,6 +1,6 @@
 /** Serves glm-* requests through the chatglm.cn upstream in OpenAI-compatible shapes. */
-import { envTokenWriter } from "../config/dotenvWriter.js";
 import type { AppConfig } from "../config/env.js";
+import { envTokenWriter } from "../config/dotenvWriter.js";
 import type { ChatStreamChunk } from "../deepseek/chatStream.js";
 import type { OpenAIResponse } from "../deepseek/mapResponses.js";
 import { requestConversationTurns } from "../deepseek/promptBuild.js";
@@ -8,6 +8,7 @@ import { ResponseEventWriter, type ResponseEmitter } from "../deepseek/responseE
 import type { RequestBody } from "../deepseek/types.js";
 import { HttpError } from "../utils/errors.js";
 import { GlmClient } from "./client.js";
+import type { GlmLoginManager } from "./login.js";
 import { resolveGlmModel } from "./models.js";
 import { iterGlmUpdates } from "./updates.js";
 
@@ -25,13 +26,10 @@ function renderPrompt(body: RequestBody): string {
 export class GlmService {
   private readonly client: GlmClient;
 
-  constructor(config: AppConfig) {
-    // Only an account token rotates, so persistence is wired in only for that mode.
-    const persist = config.glmRefreshToken
-      ? envTokenWriter("GLM_REFRESH_TOKEN", config.dotEnvFile, (error: unknown) => {
-          console.warn(`[GLM] 无法写回 GLM_REFRESH_TOKEN：${String(error)}`);
-        })
-      : undefined;
+  constructor(config: AppConfig, private readonly login: GlmLoginManager) {
+    const persist = envTokenWriter("GLM_REFRESH_TOKEN", config.dotEnvFile, (error: unknown) => {
+      console.warn(`[GLM] 无法写回 GLM_REFRESH_TOKEN：${String(error)}`);
+    });
     this.client = new GlmClient({
       baseUrl: config.glmBaseUrl,
       assistantId: config.glmAssistantId,
@@ -42,12 +40,20 @@ export class GlmService {
     });
   }
 
+  /** Resolve the login first so a browser-only token is picked up on the very first call. */
+  private async openStream(prompt: string): Promise<Response> {
+    await this.login.ensureLoggedIn();
+    const token = this.login.currentToken();
+    if (token) this.client.adoptRefreshToken(token);
+    return this.client.streamChat(prompt);
+  }
+
   /** Stream chat.completion.chunk deltas; an upstream error frame aborts the stream. */
   async streamChat(body: RequestBody, emit: (chunk: ChatStreamChunk) => void): Promise<void> {
     const model = resolveGlmModel(body);
     const prompt = renderPrompt(body);
     if (!prompt) throw new HttpError(400, "empty input");
-    const upstream = await this.client.streamChat(prompt);
+    const upstream = await this.openStream(prompt);
     const created = Math.floor(Date.now() / 1000);
     const id = `chatcmpl_glm_${created}`;
     let roleSent = false;
@@ -56,7 +62,13 @@ export class GlmService {
     const write = (delta: Record<string, unknown>): void => {
       const withRole = roleSent ? delta : { role: "assistant", ...delta };
       roleSent = true;
-      emit({ id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: withRole, finish_reason: null }] });
+      emit({
+        id,
+        object: "chat.completion.chunk",
+        created,
+        model,
+        choices: [{ index: 0, delta: withRole, finish_reason: null }],
+      });
     };
     for await (const update of iterGlmUpdates(upstream)) {
       if (update.type === "reasoning" && update.delta) reasoningText += update.delta;
@@ -69,7 +81,14 @@ export class GlmService {
       } else if (update.type === "error") throw new HttpError(502, update.message);
     }
     if (!roleSent) write({ content: "" });
-    emit({ id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }], conversation: id });
+    emit({
+      id,
+      object: "chat.completion.chunk",
+      created,
+      model,
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      conversation: id,
+    });
   }
 
   /** Buffer one glm stream into a Responses object, emitting the same SSE events as DeepSeek. */
@@ -77,7 +96,7 @@ export class GlmService {
     const model = resolveGlmModel(body);
     const prompt = renderPrompt(body);
     if (!prompt) throw new HttpError(400, "empty input");
-    const upstream = await this.client.streamChat(prompt);
+    const upstream = await this.openStream(prompt);
     const createdAt = Math.floor(Date.now() / 1000);
     const id = `resp_glm_${createdAt}`;
     const writer = new ResponseEventWriter(emit, `${id}_reasoning`, `${id}_message`);

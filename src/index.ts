@@ -7,6 +7,7 @@ import { LoginManager } from "./browser/login.js";
 import { ChromeManager } from "./browser/chrome.js";
 import { loadConfig } from "./config/env.js";
 import { DeepSeekClient } from "./deepseek/client.js";
+import { GlmLoginManager } from "./glm/login.js";
 import { GlmService } from "./glm/service.js";
 import { SessionStore } from "./deepseek/sessionStore.js";
 import { loadApiKey } from "./server/authMiddleware.js";
@@ -33,8 +34,9 @@ async function buildRuntime() {
   const login = new LoginManager(chrome, config, logger);
   const sessions = new SessionStore(config.sessionsFile, logger);
   const client = new DeepSeekClient(config, login, sessions, logger);
-  const glm = new GlmService(config);
-  return { config, logger, client, glm };
+  const glmLogin = new GlmLoginManager(chrome, config, logger);
+  const glm = new GlmService(config, glmLogin);
+  return { config, logger, client, glm, glmLogin };
 }
 
 /** Validate login before listening so the first API request is immediately usable. */

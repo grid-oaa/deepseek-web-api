@@ -107,6 +107,18 @@ export class ChromeManager {
     return context;
   }
 
+  /** Reuse a page already on the given origin, otherwise open a visible one there. */
+  async pageFor(url: string, options: ConnectOptions = {}): Promise<Page> {
+    const context = await this.context({ visible: true, ...options });
+    const host = new URL(url).hostname;
+    let page = context.pages().find((candidate) => candidate.url().includes(host));
+    if (!page) page = context.pages()[0] ?? (await context.newPage());
+    if (!page.url().startsWith(url)) {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    }
+    return page;
+  }
+
   async deepSeekPage(options: ConnectOptions = {}): Promise<Page> {
     const openDeepSeek = options.openDeepSeek ?? true;
     const context = await this.context(options);

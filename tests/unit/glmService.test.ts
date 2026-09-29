@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import type { AppConfig } from "../../src/config/env.js";
 import type { ChatStreamChunk } from "../../src/deepseek/chatStream.js";
+import type { GlmLoginManager } from "../../src/glm/login.js";
 import { GlmService } from "../../src/glm/service.js";
 
-const GUEST = { result: { access_token: "guest-token" } };
 
 function config(): AppConfig {
   return {
@@ -29,11 +29,11 @@ function config(): AppConfig {
   };
 }
 
-/** Wrap a real stream in the token call the client makes before every chat request. */
+/** Serve the token exchange and then the chat stream, so no test touches the network. */
 function stubUpstream(stream: string): typeof fetch {
   const impl = (async (url: string | URL | Request) => {
-    if (String(url).endsWith("/guest/access")) {
-      return new Response(JSON.stringify(GUEST), { status: 200 });
+    if (String(url).includes("/user-api/")) {
+      return new Response(JSON.stringify({ result: { access_token: "test-access" } }), { status: 200 });
     }
     return new Response(stream, { status: 200 });
   }) as unknown as typeof fetch;
@@ -56,8 +56,16 @@ function textPart(text: string, finished = false): Record<string, unknown> {
   };
 }
 
+/** Login stub so tests resolve a token without opening a browser. */
+function stubLogin(token = "refresh-token"): GlmLoginManager {
+  return {
+    ensureLoggedIn: async () => token,
+    currentToken: () => token,
+  } as unknown as GlmLoginManager;
+}
+
 function serviceWith(stream: string): GlmService {
-  const service = new GlmService(config());
+  const service = new GlmService(config(), stubLogin());
   // Inject the stub through the private client so no test touches the network.
   (service as unknown as { client: { fetchImpl: typeof fetch } }).client.fetchImpl = stubUpstream(stream);
   return service;
