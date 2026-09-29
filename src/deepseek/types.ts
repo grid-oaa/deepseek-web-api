@@ -3,8 +3,8 @@ export type ModelType = "default" | "expert";
 export type PublicModel =
   | "deepseek-v4-flash"
   | "deepseek-v4-pro"
-  | "glm-4-flash"
-  | "glm-4-plus";
+  | "glm-5.3-flash"
+  | "glm-5.3";
 
 export interface ModelResolution {
   raw: string;

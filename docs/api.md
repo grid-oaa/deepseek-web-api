@@ -37,8 +37,8 @@ x-api-key: <api-key>
 | --- | --- | --- | --- |
 | `deepseek-v4-flash` | `flash`, `default`, `deepseek-chat` | DeepSeek Web `default` | supported |
 | `deepseek-v4-pro` | `pro`, `expert`, `deepseek-reasoner` | DeepSeek Web `expert` | forced off |
-| `glm-4-flash` | any other `glm-*` name | chatglm.cn | not supported |
-| `glm-4-plus` | any `glm-*` name containing `plus` or `pro` | chatglm.cn | not supported |
+| `glm-5.3-flash` | any `glm-*` name containing `flash` | chatglm.cn | not supported |
+| `glm-5.3` | any other `glm-*` name | chatglm.cn | not supported |
 
 Requests whose `model` starts with `glm` are routed to chatglm.cn; everything else goes to
 DeepSeek Web. The `glm-*` models reuse the same request and response shapes but do not

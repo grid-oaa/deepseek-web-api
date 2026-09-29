@@ -92,8 +92,8 @@ describe("HTTP server routes", () => {
     expect(payload.data.map((entry) => entry.id)).toEqual([
       "deepseek-v4-flash",
       "deepseek-v4-pro",
-      "glm-4-flash",
-      "glm-4-plus",
+      "glm-5.3-flash",
+      "glm-5.3",
     ]);
     expect(payload.data.filter((entry) => entry.id.startsWith("glm-")).every((entry) => entry.owned_by === "chatglm-cn")).toBe(true);
   });

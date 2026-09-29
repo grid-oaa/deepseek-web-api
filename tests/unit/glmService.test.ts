@@ -83,14 +83,14 @@ describe("GLM service mapping", () => {
       ]),
     );
     const chunks: ChatStreamChunk[] = [];
-    await service.streamChat({ model: "glm-4-plus", messages: [{ role: "user", content: "hi" }] }, (chunk) => chunks.push(chunk));
+    await service.streamChat({ model: "glm-5.3", messages: [{ role: "user", content: "hi" }] }, (chunk) => chunks.push(chunk));
 
     const contents = chunks
       .map((chunk) => chunk.choices[0]?.delta.content)
       .filter((value): value is string => typeof value === "string");
     expect(contents.join("")).toBe("Hello");
     expect(chunks[0]?.choices[0]?.delta.role).toBe("assistant");
-    expect(chunks[0]?.model).toBe("glm-4-plus");
+    expect(chunks[0]?.model).toBe("glm-5.3");
     expect(chunks[chunks.length - 1]?.choices[0]?.finish_reason).toBe("stop");
   });
 
@@ -104,7 +104,7 @@ describe("GLM service mapping", () => {
       ]),
     );
     const chunks: ChatStreamChunk[] = [];
-    await service.streamChat({ model: "glm-4-flash", messages: [{ role: "user", content: "hi" }] }, (chunk) => chunks.push(chunk));
+    await service.streamChat({ model: "glm-5.3-flash", messages: [{ role: "user", content: "hi" }] }, (chunk) => chunks.push(chunk));
 
     expect(chunks.map((chunk) => chunk.choices[0]?.delta.content).join("")).toBe("answer");
     const reasoning = chunks
@@ -117,9 +117,9 @@ describe("GLM service mapping", () => {
     const service = serviceWith(
       sse([initFrame(), { parts: [textPart("done", true)] }, { status: "finish" }]),
     );
-    const result = await service.completeResponses({ model: "glm-4-flash", input: "hello" });
+    const result = await service.completeResponses({ model: "glm-5.3-flash", input: "hello" });
     expect(result.status).toBe("completed");
-    expect(result.model).toBe("glm-4-flash");
+    expect(result.model).toBe("glm-5.3-flash");
     expect(result.output_text).toBe("done");
     expect(result.metadata.source).toBe("chatglm.cn");
   });
@@ -129,13 +129,13 @@ describe("GLM service mapping", () => {
       sse([initFrame(), { status: "error", last_error: { error_code: 10061, err_msg: "no quota" } }]),
     );
     await expect(
-      service.completeResponses({ model: "glm-4-flash", input: "hello" }),
+      service.completeResponses({ model: "glm-5.3-flash", input: "hello" }),
     ).rejects.toThrow(/10061/);
   });
 
   it("rejects a request whose input carries no text", async () => {
     const service = serviceWith(sse([initFrame(), { status: "finish" }]));
-    await expect(service.completeResponses({ model: "glm-4-flash", input: [] })).rejects.toThrow(
+    await expect(service.completeResponses({ model: "glm-5.3-flash", input: [] })).rejects.toThrow(
       /empty input/,
     );
   });

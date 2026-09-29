@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- chatglm.cn upstream served through the `glm-4-flash` and `glm-4-plus` model ids, dispatched by the `glm` model prefix.
+- chatglm.cn upstream served through the `glm-5.3-flash` and `glm-5.3` model ids, dispatched by the `glm` model prefix.
 - Optional `GLM_*` settings for the chatglm.cn endpoint, assistant id, user agent, and access/refresh tokens.
 
 ### Fixed

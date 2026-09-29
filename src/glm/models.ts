@@ -8,8 +8,11 @@ export function isGlmRequest(body: RequestBody): boolean {
     .startsWith("glm");
 }
 
-/** Pick the public glm id; unknown glm names fall back to the flash tier. */
+/**
+ * Pick the public glm id. The full id (glm-5.3) is the stronger tier, so only an
+ * explicit flash marker selects the smaller one; unknown glm names get the full model.
+ */
 export function resolveGlmModel(body: RequestBody): PublicModel {
   const raw = String(body.model ?? "").toLowerCase();
-  return raw.includes("plus") || raw.includes("pro") ? "glm-4-plus" : "glm-4-flash";
+  return raw.includes("flash") ? "glm-5.3-flash" : "glm-5.3";
 }
