@@ -10,3 +10,9 @@ export const CLIENT_HEADERS = {
   "x-client-locale": "zh_CN",
   "x-client-bundle-id": "com.deepseek.chat",
 } as const;
+
+/** Default endpoint, assistant id, and UA for the optional chatglm.cn upstream (glm-* models only). */
+export const GLM_BASE_URL = "https://chatglm.cn/chatglm";
+export const GLM_ASSISTANT_ID = "65940acff94777010aa6b796";
+export const GLM_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36";

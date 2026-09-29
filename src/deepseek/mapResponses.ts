@@ -10,7 +10,7 @@ export type { ResponseEmitter } from "./responseEvents.js";
 
 export interface ResponseMetadata extends Record<string, unknown> {
   chat_session_id: string;
-  source: "chat.deepseek.com";
+  source: "chat.deepseek.com" | "chatglm.cn";
   thinking_enabled?: boolean;
   search_enabled?: boolean;
   model_type?: ModelType;

@@ -24,7 +24,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "node scripts/check-comments.mjs && node scripts/check-source-lines.mjs && eslint \"src/**/*.ts\" \"tests/**/*.ts\" vitest.config.ts",
     "test": "vitest run",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "glm:probe": "node scripts/glm-probe.mjs"
   },
   "engines": {
     "node": ">=20"

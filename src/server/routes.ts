@@ -2,9 +2,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { handleChatCompletions } from "../api/chatCompletions.js";
+import { handleGlmChatCompletions, handleGlmResponses } from "../api/glm.js";
 import { handleModels } from "../api/models.js";
 import { handleResponses } from "../api/responses.js";
 import type { RequestBody } from "../deepseek/types.js";
+import { isGlmRequest } from "../glm/models.js";
 import { errorMessage, errorStatus } from "../utils/errors.js";
 import { readJsonBody, writeCorsPreflight, writeJson } from "../utils/http.js";
 import { requireApiKey } from "./authMiddleware.js";
@@ -38,12 +40,14 @@ export async function routeRequest(
   }
   if (request.method === "POST" && path === "/v1/responses") {
     const body: RequestBody = await readJsonBody(request);
-    await handleResponses(response, body, dependencies.client);
+    if (isGlmRequest(body)) await handleGlmResponses(response, body, dependencies.glm);
+    else await handleResponses(response, body, dependencies.client);
     return;
   }
   if (request.method === "POST" && path === "/v1/chat/completions") {
     const body: RequestBody = await readJsonBody(request);
-    await handleChatCompletions(response, body, dependencies.client);
+    if (isGlmRequest(body)) await handleGlmChatCompletions(response, body, dependencies.glm);
+    else await handleChatCompletions(response, body, dependencies.client);
     return;
   }
   writeJson(response, 404, { error: { message: "not found" } });

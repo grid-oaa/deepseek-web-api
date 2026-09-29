@@ -7,6 +7,7 @@ import { LoginManager } from "./browser/login.js";
 import { ChromeManager } from "./browser/chrome.js";
 import { loadConfig } from "./config/env.js";
 import { DeepSeekClient } from "./deepseek/client.js";
+import { GlmService } from "./glm/service.js";
 import { SessionStore } from "./deepseek/sessionStore.js";
 import { loadApiKey } from "./server/authMiddleware.js";
 import { createServer } from "./server/createServer.js";
@@ -32,15 +33,16 @@ async function buildRuntime() {
   const login = new LoginManager(chrome, config, logger);
   const sessions = new SessionStore(config.sessionsFile, logger);
   const client = new DeepSeekClient(config, login, sessions, logger);
-  return { config, logger, client };
+  const glm = new GlmService(config);
+  return { config, logger, client, glm };
 }
 
 /** Validate login before listening so the first API request is immediately usable. */
 async function start(): Promise<void> {
-  const { config, logger, client } = await buildRuntime();
+  const { config, logger, client, glm } = await buildRuntime();
   const apiKey = loadApiKey(config.apiKeyFile);
   await client.initialize();
-  const server = createServer({ client, apiKeys: apiKey.keys, debug: config.debug });
+  const server = createServer({ client, glm, apiKeys: apiKey.keys, debug: config.debug });
   await listen(server, config.port, config.host);
   logger.info(`deepseek-web-api 已启动：http://${config.host}:${config.port}`);
   logger.info("路由：POST /v1/responses、POST /v1/chat/completions、GET /v1/models、GET /health");

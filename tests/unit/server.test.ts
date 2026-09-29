@@ -10,6 +10,7 @@ import { LoginManager } from "../../src/browser/login.js";
 import type { AppConfig } from "../../src/config/env.js";
 import { DeepSeekClient } from "../../src/deepseek/client.js";
 import { SessionStore } from "../../src/deepseek/sessionStore.js";
+import { GlmService } from "../../src/glm/service.js";
 import { createServer } from "../../src/server/createServer.js";
 import { createLogger } from "../../src/utils/logger.js";
 
@@ -18,7 +19,7 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
 });
 
-function testClient(): DeepSeekClient {
+function testDependencies(): { client: DeepSeekClient; glm: GlmService } {
   const dataDir = mkdtempSync(path.join(tmpdir(), "deepseek-web-api-test-"));
   const config: AppConfig = {
     port: 8787,
@@ -34,11 +35,17 @@ function testClient(): DeepSeekClient {
     debug: false,
     toolReasoning: "hidden",
     showBrowser: false,
+    glmBaseUrl: "https://glm.test/chatglm",
+    glmAssistantId: "assistant",
+    glmUserAgent: "ua",
   };
   const logger = createLogger(false);
   const chrome = new ChromeManager(config, logger);
   const login = new LoginManager(chrome, config, logger);
-  return new DeepSeekClient(config, login, new SessionStore(), logger);
+  return {
+    client: new DeepSeekClient(config, login, new SessionStore(), logger),
+    glm: new GlmService(config),
+  };
 }
 
 async function baseUrl(server: Server): Promise<string> {
@@ -51,7 +58,7 @@ async function baseUrl(server: Server): Promise<string> {
 
 describe("HTTP server routes", () => {
   it("keeps health open and protects /v1 routes", async () => {
-    const server = createServer({ client: testClient(), apiKeys: ["secret", "also-secret"], debug: false });
+    const server = createServer({ ...testDependencies(), apiKeys: ["secret", "also-secret"], debug: false });
     const url = await baseUrl(server);
     expect(await fetch(`${url}/health`).then((response) => response.json())).toEqual({ ok: true });
     expect((await fetch(`${url}/v1/models`)).status).toBe(401);
@@ -62,5 +69,21 @@ describe("HTTP server routes", () => {
     expect(await models.json()).toMatchObject({ object: "list" });
     const alt = await fetch(`${url}/v1/models`, { headers: { "x-api-key": "also-secret" } });
     expect(alt.status).toBe(200);
+  });
+
+  it("lists the glm public models served by the chatglm.cn upstream", async () => {
+    const server = createServer({ ...testDependencies(), apiKeys: ["secret"], debug: false });
+    const url = await baseUrl(server);
+    const response = await fetch(`${url}/v1/models`, {
+      headers: { authorization: "Bearer secret" },
+    });
+    const payload = (await response.json()) as { data: Array<{ id: string; owned_by: string }> };
+    expect(payload.data.map((entry) => entry.id)).toEqual([
+      "deepseek-v4-flash",
+      "deepseek-v4-pro",
+      "glm-4-flash",
+      "glm-4-plus",
+    ]);
+    expect(payload.data.filter((entry) => entry.id.startsWith("glm-")).every((entry) => entry.owned_by === "chatglm-cn")).toBe(true);
   });
 });

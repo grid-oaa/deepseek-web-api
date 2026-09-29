@@ -6,6 +6,9 @@ import {
   DEFAULT_CDP_ENDPOINT,
   DEFAULT_POW_WORKER_URL,
   DEEPSEEK_BASE_URL,
+  GLM_ASSISTANT_ID,
+  GLM_BASE_URL,
+  GLM_USER_AGENT,
 } from "./constants.js";
 
 export type ToolReasoningMode = "hidden" | "clean";
@@ -26,6 +29,12 @@ export interface AppConfig {
   toolReasoning: ToolReasoningMode;
   /** Show Chrome UI. Default false (headless). Login always opens a visible window when needed. */
   showBrowser: boolean;
+  /** Optional chatglm.cn upstream used by glm-* models; without tokens it runs in guest mode. */
+  glmBaseUrl: string;
+  glmAssistantId: string;
+  glmUserAgent: string;
+  glmAccessToken?: string;
+  glmRefreshToken?: string;
 }
 
 /** Load KEY=VALUE lines from .env without overriding existing process.env. */
@@ -75,6 +84,8 @@ export function loadConfig(cwd = process.cwd()): AppConfig {
   loadDotEnv(cwd);
   const dataDir = envPath("DS_DATA_DIR", path.join(cwd, "data"));
   const chromePath = process.env.DS_CHROME_PATH?.trim();
+  const glmAccessToken = process.env.GLM_ACCESS_TOKEN?.trim();
+  const glmRefreshToken = process.env.GLM_REFRESH_TOKEN?.trim();
   return {
     port: parsePort(process.env.PORT),
     host: process.env.HOST?.trim() || "127.0.0.1",
@@ -90,5 +101,10 @@ export function loadConfig(cwd = process.cwd()): AppConfig {
     debug: /^(1|true|yes|on)$/i.test(process.env.DS_DEBUG || ""),
     toolReasoning: parseToolReasoning(process.env.DS_TOOL_REASONING),
     showBrowser: /^(1|true|yes|on)$/i.test(process.env.DS_SHOW_BROWSER || ""),
+    glmBaseUrl: process.env.GLM_BASE_URL?.trim() || GLM_BASE_URL,
+    glmAssistantId: process.env.GLM_ASSISTANT_ID?.trim() || GLM_ASSISTANT_ID,
+    glmUserAgent: process.env.GLM_USER_AGENT?.trim() || GLM_USER_AGENT,
+    ...(glmAccessToken ? { glmAccessToken } : {}),
+    ...(glmRefreshToken ? { glmRefreshToken } : {}),
   };
 }
