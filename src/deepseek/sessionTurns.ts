@@ -1,9 +1,17 @@
 /** Matches normalized conversation windows across full and truncated client histories. */
+import { createHash } from "node:crypto";
+
 import { normalizeText } from "../utils/text.js";
 import type { MessageTurn } from "./types.js";
 
+/**
+ * Hash the whole turn list into a fixed-width key. The value is only ever compared for
+ * equality, so a digest keeps the on-disk conv index small instead of storing the full
+ * conversation text once per turn.
+ */
 export function fingerprint(turns: MessageTurn[]): string {
-  return turns.map((turn) => `${turn.role}:${turn.content}`).join("\n---\n");
+  const payload = turns.map((turn) => `${turn.role}:${turn.content}`).join("\n---\n");
+  return createHash("sha256").update(payload, "utf8").digest("hex");
 }
 
 export function fpKey(value: string): string {
