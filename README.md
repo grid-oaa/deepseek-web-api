@@ -124,10 +124,14 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 
 ## 模型与功能映射
 
-| 公共模型 ID | DeepSeek Web `model_type` | Search |
+| 公共模型 ID | 上游 | Search |
 | --- | --- | --- |
-| `deepseek-v4-flash` | `default` | 支持 |
-| `deepseek-v4-pro` | `expert` | Web 端不支持，服务端强制关闭 |
+| `deepseek-v4-flash` | DeepSeek Web `default` | 支持 |
+| `deepseek-v4-pro` | DeepSeek Web `expert` | Web 端不支持，服务端强制关闭 |
+| `glm-4-flash` | chatglm.cn | 不支持 |
+| `glm-4-plus` | chatglm.cn | 不支持 |
+
+`model` 以 `glm` 开头的请求会转发到 chatglm.cn，其余走 DeepSeek Web。`glm-*` 复用相同的请求与响应结构，但不支持 tool calling、Web 搜索，也不复用 DeepSeek 的 session 续接。
 
 兼容别名：
 
@@ -211,6 +215,11 @@ DeepSeek Web 没有 OpenAI 原生 function calling。本项目把 tools/function
 | `DS_BASE_URL` | `https://chat.deepseek.com` | 上游地址，主要用于调试 |
 | `DS_DEBUG` | `false` | 增加调试日志和 HTTP error stack |
 | `DS_TOOL_REASONING` | `hidden` | 工具轮 reasoning：`hidden` 或 `clean` |
+| `GLM_BASE_URL` | `https://chatglm.cn/chatglm` | chatglm.cn 上游地址 |
+| `GLM_ASSISTANT_ID` | 内置 | chatglm.cn assistant id |
+| `GLM_USER_AGENT` | 内置 Chrome UA | chatglm.cn 请求 UA |
+| `GLM_ACCESS_TOKEN` | 空 | 可选；留空则每次走游客令牌 |
+| `GLM_REFRESH_TOKEN` | 空 | 可选；游客额度通常返回业务码 10061 |
 
 可复制 `.env.example` 为 `.env`。启动时读取该文件，但不会覆盖已存在的进程环境变量。
 

@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- chatglm.cn upstream served through the `glm-4-flash` and `glm-4-plus` model ids, dispatched by the `glm` model prefix.
+- Optional `GLM_*` settings for the chatglm.cn endpoint, assistant id, user agent, and access/refresh tokens; guest mode applies when no token is set.
+
+### Fixed
+
+- Interactive login no longer reuses a leftover headless Chrome, so a visible window is shown when a login is required.
+- Session lineage fingerprints are hashed, so `data/sessions.json` no longer grows with the square of the conversation length.
+
 ## [0.1.0] - 2026-07-25
 
 ### Added

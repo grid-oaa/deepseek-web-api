@@ -33,12 +33,18 @@ x-api-key: <api-key>
 
 ## Models
 
-| Public ID | Aliases | DeepSeek Web `model_type` | Search |
+| Public ID | Aliases | Upstream | Search |
 | --- | --- | --- | --- |
-| `deepseek-v4-flash` | `flash`, `default`, `deepseek-chat` | `default` | supported |
-| `deepseek-v4-pro` | `pro`, `expert`, `deepseek-reasoner` | `expert` | forced off |
+| `deepseek-v4-flash` | `flash`, `default`, `deepseek-chat` | DeepSeek Web `default` | supported |
+| `deepseek-v4-pro` | `pro`, `expert`, `deepseek-reasoner` | DeepSeek Web `expert` | forced off |
+| `glm-4-flash` | any other `glm-*` name | chatglm.cn | not supported |
+| `glm-4-plus` | any `glm-*` name containing `plus` or `pro` | chatglm.cn | not supported |
 
-Unknown model strings containing `pro` or `expert` resolve to expert mode; other unknown strings resolve to flash mode. Clients should use the two public IDs returned by `/v1/models`.
+Requests whose `model` starts with `glm` are routed to chatglm.cn; everything else goes to
+DeepSeek Web. The `glm-*` models reuse the same request and response shapes but do not
+support tool-call mapping, Web search, or DeepSeek session reuse.
+
+Unknown model strings containing `pro` or `expert` resolve to expert mode; other unknown strings resolve to flash mode. Clients should use the public IDs returned by `/v1/models`.
 
 ## Responses API
 
