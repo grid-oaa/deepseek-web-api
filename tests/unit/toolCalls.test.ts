@@ -303,3 +303,93 @@ ${FAILED_SESSION_A}`);
     ).toEqual({ content: "", toolCalls: [] });
   });
 });
+
+// The native dialect wraps tag names in full-width bars (U+FF5C) behind a DSML prefix.
+const NATIVE_BAR = "\uFF5C";
+const nativeOpen = (name: string, attributes = ""): string =>
+  `<${NATIVE_BAR}${NATIVE_BAR}DSML${NATIVE_BAR}${NATIVE_BAR} ${name}${attributes ? ` ${attributes}` : ""}>`;
+const nativeClose = (name: string): string =>
+  `</${NATIVE_BAR}${NATIVE_BAR}DSML${NATIVE_BAR}${NATIVE_BAR} ${name}>`;
+
+describe("parseToolCalls native dialect", () => {
+  it("maps full-width invoke markup to OpenAI tool_calls", () => {
+    const sample = [
+      "Listing the project root.",
+      nativeOpen("calls"),
+      nativeOpen("invoke", 'name="list_directory_tree"'),
+      nativeOpen("parameter", 'name="directoryPath" string="true"'),
+      ".",
+      nativeClose("parameter"),
+      nativeOpen("parameter", 'name="maxDepth" string="false"'),
+      "2",
+      nativeClose("parameter"),
+      nativeClose("invoke"),
+      nativeClose("calls"),
+    ].join("\n");
+
+    const result = parseToolCalls(sample, "seed");
+
+    expect(result.content).toBe("Listing the project root.");
+    expect(result.toolCalls).toHaveLength(1);
+    expect(result.toolCalls[0]).toMatchObject({
+      id: expect.stringMatching(/^call_[0-9a-f]{24}$/),
+      type: "function",
+      function: { name: "list_directory_tree", arguments: '{"directoryPath":".","maxDepth":2}' },
+    });
+  });
+
+  it("decodes JSON parameters and keeps invocation order", () => {
+    const sample = [
+      nativeOpen("calls"),
+      nativeOpen("invoke", 'name="search"'),
+      nativeOpen("parameter", 'name="queries" string="false"'),
+      '["alpha","beta"]',
+      nativeClose("parameter"),
+      nativeClose("invoke"),
+      nativeOpen("invoke", 'name="read"'),
+      nativeOpen("parameter", 'name="path" string="true"'),
+      "README.md",
+      nativeClose("parameter"),
+      nativeClose("invoke"),
+      nativeClose("calls"),
+    ].join("\n");
+
+    const result = parseToolCalls(sample, "seed");
+
+    expect(result.content).toBe("");
+    expect(result.toolCalls.map((call) => call.function)).toEqual([
+      { name: "search", arguments: '{"queries":["alpha","beta"]}' },
+      { name: "read", arguments: '{"path":"README.md"}' },
+    ]);
+  });
+
+  it("strips dialect markup without a usable call so the turn stays retryable", () => {
+    const sample = [
+      nativeOpen("calls"),
+      nativeOpen("invoke"),
+      nativeClose("invoke"),
+      nativeClose("calls"),
+    ].join("\n");
+
+    expect(parseToolCalls(sample)).toEqual({ content: "", toolCalls: [] });
+  });
+
+  it("tolerates a mangled wrapper tag and a plain JSON invoke body", () => {
+    const sample = [
+      "< calls>",
+      nativeOpen("invoke", 'name="list_database_connections"'),
+      '{"projectPath":"D:/workspace/hhsy/marketing-sichuan"}',
+      nativeClose("parameter"),
+      nativeClose("invoke"),
+      nativeClose("calls"),
+    ].join("\n");
+
+    const result = parseToolCalls(sample, "seed");
+
+    expect(result.content).toBe("");
+    expect(result.toolCalls[0]?.function).toEqual({
+      name: "list_database_connections",
+      arguments: '{"projectPath":"D:/workspace/hhsy/marketing-sichuan"}',
+    });
+  });
+});

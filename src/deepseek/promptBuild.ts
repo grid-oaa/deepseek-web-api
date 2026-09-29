@@ -137,7 +137,8 @@ function toolState(body: RequestBody): { text: string; fingerprint: string; hasT
     parallel_tool_calls: body.parallel_tool_calls,
   };
   const policy = [
-    "DeepSeek Web has no native function calling. Use only the tools listed below.",
+    "DeepSeek Web exposes no OpenAI function calling, so calls are simulated with the block format below.",
+    "Use only the tools listed below.",
     "You are a tool-using agent. Prefer tools over refusal.",
     "For real-time facts (weather, news, prices), local files, shell, browser, or anything requiring current or external data, you MUST call an available tool first.",
     "Never claim you cannot help when a listed tool can obtain the data.",
@@ -151,6 +152,8 @@ function toolState(body: RequestBody): { text: string; fingerprint: string; hasT
     "Rules:",
     "- Open tag is exactly <tool_call> and close tag is exactly </tool_call>.",
     "- Never write <_call>, <tool_call name=...>, attributes on the tag, or nested wrappers.",
+    "- Never use the native full-width delimited DSML/DSML invoke/parameter markup; that dialect is discarded and the call is lost.",
+    "- Any tag other than the exact open/close pair above is discarded, so a call written in another style never reaches the client.",
     "- JSON must include both name and arguments, and every string, {, and [ must be fully closed.",
     "- arguments must match the selected tool schema. Each call must be one complete block.",
     "- Multiple tools = multiple consecutive complete blocks.",

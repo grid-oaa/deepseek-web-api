@@ -63,3 +63,41 @@ describe("tool Chat stream mapping", () => {
     expect(chunks.at(-1)?.choices[0]?.finish_reason).toBe("tool_calls");
   });
 });
+
+// Native dialect tags are ASCII "<" plus full-width bars (U+FF5C) around a DSML prefix.
+const nativeTag = (name: string, attributes = ""): string => {
+  const bar = "\uFF5C";
+  return `<${bar}${bar}DSML${bar}${bar} ${name}${attributes ? ` ${attributes}` : ""}>`;
+};
+const nativeEndTag = (name: string): string => {
+  const bar = "\uFF5C";
+  return `</${bar}${bar}DSML${bar}${bar} ${name}>`;
+};
+
+describe("native dialect tool turn", () => {
+  it("streams the dialect as tool_calls instead of raw markup", async () => {
+    const output = [
+      nativeTag("calls"),
+      nativeTag("invoke", 'name="read"'),
+      `${nativeTag("parameter", 'name="path" string="true"')}src/index.ts${nativeEndTag("parameter")}`,
+      nativeEndTag("invoke"),
+      nativeEndTag("calls"),
+    ].join("\n");
+    const result = await consumeToolChat(run(upstream({ output })), "");
+    const chunks: ChatStreamChunk[] = [];
+    emitToolChat(run(new Response()), result, "hidden", (chunk) => chunks.push(chunk));
+
+    expect(content(chunks)).toBe("");
+    expect(JSON.stringify(chunks)).toContain('"name":"read"');
+    expect(chunks.at(-1)?.choices[0]?.finish_reason).toBe("tool_calls");
+  });
+
+  it("marks a dialect-only turn without an invoke name as retryable", async () => {
+    const output = [nativeTag("calls"), nativeTag("invoke"), nativeEndTag("invoke"), nativeEndTag("calls")].join("\n");
+    const result = await consumeToolChat(run(upstream({ output })), "");
+
+    expect(result.outcome.parsed.toolCalls).toEqual([]);
+    expect(result.outcome.parsed.content).toBe("");
+    expect(result.outcome.recoverableEmpty).toBe(true);
+  });
+});

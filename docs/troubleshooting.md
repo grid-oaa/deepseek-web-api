@@ -137,6 +137,12 @@ Current versions promote a reasoning-only final answer to normal content when th
 
 The model output was malformed or used an unknown protocol shape. Confirm tools were present in the request and keep the documented strict format. For Pi, leave `DS_TOOL_REASONING=hidden` unless cleaned tool-turn reasoning is specifically needed.
 
+### Native full-width tool markup appears in content
+
+DeepSeek Web models sometimes emit their own agent dialect instead of the documented block: an ASCII `<`, full-width bars (U+FF5C), a `DSML` prefix, and then `calls`, `invoke`, or `parameter` tags. The adapter converts that dialect into normal `tool_calls` and always removes the markup from `content`; a turn that contained only undecodable markup is reported as a retryable empty turn and retried once.
+
+If raw markup still reaches you, the stored turn predates this support. Back up and delete `data/sessions.json`, because persisted assistant turns replay the markup into later prompts and make the model repeat it.
+
 ### The model refuses instead of calling a tool
 
 Tool calling is prompt-simulated. Check that:

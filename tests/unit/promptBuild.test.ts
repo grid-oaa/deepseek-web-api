@@ -71,6 +71,11 @@ describe("buildDeepSeekPrompt", () => {
     expect(result.prompt).toContain("Each call must be one complete block");
     expect(result.prompt).toContain("never draft a partial call in RESPONSE");
     expect(result.prompt).toContain("Tool protocol is allowed only in the final RESPONSE channel.");
+    expect(result.prompt).toContain("full-width delimited DSML");
+    expect(result.prompt).toContain("Any tag other than the exact open/close pair above is discarded");
+    expect(result.prompt).toContain("Never use the native full-width delimited DSML/DSML invoke/parameter markup");
+    expect(result.prompt).toContain("Any tag other than the exact open/close pair above is discarded");
+
     expect(result.prompt).toContain("Never place <tool_call> blocks or tool JSON in THINK/reasoning.");
   });
 

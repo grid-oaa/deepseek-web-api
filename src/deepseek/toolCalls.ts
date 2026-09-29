@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 
 import { isRecord } from "../utils/json.js";
+import { parseNativeToolCalls } from "./nativeToolCalls.js";
 import { collectJsonObjects, looksLikeToolJson } from "./toolCallJson.js";
 
 export interface OpenAIToolCall {
@@ -196,8 +197,9 @@ function taggedCandidates(text: string, blocks: readonly TagBlock[]): {
 export function parseToolCalls(text: string, seed = "tool"): ParsedToolCalls {
   const blocks = tagBlocks(text);
   const tagged = taggedCandidates(text, blocks);
+  const native = parseNativeToolCalls(text);
   const bareObjects = collectJsonObjects(text).filter(
-    (object) => !overlaps({ start: object.start, end: object.end }, blocks),
+    (object) => !overlaps({ start: object.start, end: object.end }, [...blocks, ...native.ranges]),
   );
   const bareRanges = bareObjects
     .filter((object) => looksLikeToolJson(object.raw))
@@ -211,19 +213,26 @@ export function parseToolCalls(text: string, seed = "tool"): ParsedToolCalls {
           : [];
       })
     : [];
-  const candidates = [...tagged.calls, ...bareCalls].sort((left, right) => left.order - right.order);
+  const candidates = [...tagged.calls, ...native.calls, ...bareCalls].sort(
+    (left, right) => left.order - right.order,
+  );
   const toolCalls: OpenAIToolCall[] = [];
   const seen = new Set<string>();
   for (const candidate of candidates) pushUnique(toolCalls, seed, candidate.payload, seen);
 
   const artifactRanges = [...tagged.artifacts, ...bareRanges];
-  const isProtocolOnly = artifactRanges.length > 0 && protocolOnly(text, [...blocks, ...bareRanges]);
-  if (toolCalls.length === 0 && !isProtocolOnly) return { content: text, toolCalls };
+  const isProtocolOnly =
+    artifactRanges.length > 0 && protocolOnly(text, [...blocks, ...bareRanges, ...native.ranges]);
+  // Native dialect markup is never user-visible content, so it is stripped even when undecodable.
+  if (toolCalls.length === 0 && !isProtocolOnly && native.ranges.length === 0) {
+    return { content: text, toolCalls };
+  }
   const consumed = candidates.map((candidate) => candidate.consume);
   const cleaned = withoutToolTags(
     removeRanges(text, [
       ...consumed,
       ...(toolCalls.length > 0 ? blocks : []),
+      ...native.ranges,
       ...(bareContext || isProtocolOnly ? artifactRanges : []),
     ]),
   )
